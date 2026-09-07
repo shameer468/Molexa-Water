@@ -1,21 +1,17 @@
 {
-    "version": 2,
-    "builds": [
-        {
-            "src": "backend/server.js",
-            "use": "@vercel/node"
+    "functions": {
+        "backend/server.js": {
+            "runtime": "nodejs20.x"
         }
-    ],
+    },
     "routes": [
         {
             "src": "/api/(.*)",
-            "dest": "backend/server.js"
-        }
-    ],
-    "rewrites": [
+            "dest": "/backend/server.js"
+        },
         {
-            "source": "/(.*)",
-            "destination": "/index.html"
+            "src": "/(.*)",
+            "dest": "/dist/index.html"
         }
     ]
 }

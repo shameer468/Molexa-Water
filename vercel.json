@@ -2,21 +2,26 @@
     "builds": [
         {
             "src": "backend/server.js",
-            "use": "@vercel/node"
+            "use": "@vercel/node",
+            "config": {
+                "includeFiles": [
+                    "backend/**"
+                ]
+            }
         },
         {
-            "src": "frontend/**",
+            "src": "frontend/dist/**",
             "use": "@vercel/static"
         }
     ],
     "routes": [
         {
             "src": "/api/(.*)",
-            "dest": "backend/server.js"
+            "dest": "/backend/server.js"
         },
         {
             "src": "/(.*)",
-            "dest": "frontend/index.html"
+            "dest": "/frontend/dist/index.html"
         }
     ]
 }

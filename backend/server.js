@@ -36,32 +36,40 @@ const sendWhatsAppNotification = (type, data) => {
     } else if (type === 'message') {
         message = `📩 *NEW MESSAGE!*\n━━━━━━━━━━━━━━━━\n👤 Name: ${data.name}\n📧 Email: ${data.email}\n📝 Subject: ${data.subject}\n💬 Message: ${data.message}\n📅 ${new Date().toLocaleString()}\n━━━━━━━━━━━━━━━━\n🔗 Reply: https://wa.me/${YOUR_PHONE}`;
     }
-    
+
     const whatsappUrl = `https://wa.me/${YOUR_PHONE}?text=${encodeURIComponent(message)}`;
     console.log(`\n📱 ===== WHATSAPP NOTIFICATION =====`);
     console.log(`📝 ${message}`);
     console.log(`🔗 Click to send: ${whatsappUrl}`);
     console.log(`✅ Send to: ${YOUR_PHONE}`);
     console.log(`===================================\n`);
-    
+
     return whatsappUrl;
 };
 
 // ============ EMAIL NOTIFICATION ============
-const emailTransporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: YOUR_EMAIL,
-        pass: 'ptbmddueszaoavxq'  // ✅ App Password daal diya (bina brackets ke)
-   },
-    tls: {
-         rejectUnauthorized: false  // ✅ Ye line add karo!
-    }
-});
+// Nodemailer configuration - Vercel compatible
+let emailTransporter;
+
+try {
+    emailTransporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: YOUR_EMAIL,
+            pass: 'ptbmddueszaoavxq'  // ✅ App Password
+        },
+        tls: {
+            rejectUnauthorized: false
+        }
+    });
+    console.log('✅ Email transporter configured');
+} catch (error) {
+    console.log('⚠️ Email config error:', error.message);
+}
 
 const sendEmailNotification = async (type, data) => {
     let subject, html;
-    
+
     if (type === 'order') {
         subject = `🆕 New Order - ${data.name}`;
         html = `
@@ -103,14 +111,19 @@ const sendEmailNotification = async (type, data) => {
     }
 
     try {
-        await emailTransporter.sendMail({
-            from: `"Molexa Water" <${YOUR_EMAIL}>`,
-            to: YOUR_EMAIL,
-            subject: subject,
-            html: html
-        });
-        console.log(`📧 Email sent to ${YOUR_EMAIL}`);
-        return true;
+        if (emailTransporter) {
+            await emailTransporter.sendMail({
+                from: `"Molexa Water" <${YOUR_EMAIL}>`,
+                to: YOUR_EMAIL,
+                subject: subject,
+                html: html
+            });
+            console.log(`📧 Email sent to ${YOUR_EMAIL}`);
+            return true;
+        } else {
+            console.log('⚠️ Email transporter not available');
+            return false;
+        }
     } catch (error) {
         console.log(`⚠️ Email error: ${error.message}`);
         return false;
@@ -127,14 +140,14 @@ app.get('/api/orders', (req, res) => {
 // Create order - WITH NOTIFICATIONS
 app.post('/api/orders', async (req, res) => {
     const { name, phone, email, address, city, product, quantity, total, paymentMethod, instructions } = req.body;
-    
+
     if (!name || !phone || !address || !city || !product) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'Please fill all required fields' 
+        return res.status(400).json({
+            success: false,
+            message: 'Please fill all required fields'
         });
     }
-    
+
     const newOrder = {
         id: orderIdCounter++,
         customer: name,
@@ -151,9 +164,9 @@ app.post('/api/orders', async (req, res) => {
         date: new Date().toISOString().split('T')[0],
         createdAt: new Date()
     };
-    
+
     orders.push(newOrder);
-    
+
     // ✅ SEND NOTIFICATIONS
     sendWhatsAppNotification('order', {
         name,
@@ -163,7 +176,7 @@ app.post('/api/orders', async (req, res) => {
         total: total || 0,
         address
     });
-    
+
     await sendEmailNotification('order', {
         name,
         phone,
@@ -174,11 +187,11 @@ app.post('/api/orders', async (req, res) => {
         quantity: quantity || 1,
         total: total || 0
     });
-    
-    res.status(201).json({ 
-        success: true, 
+
+    res.status(201).json({
+        success: true,
         message: '✅ Order placed successfully! Notifications sent!',
-        data: newOrder 
+        data: newOrder
     });
 });
 
@@ -201,14 +214,14 @@ app.get('/api/messages', (req, res) => {
 // Create message - WITH NOTIFICATIONS
 app.post('/api/messages', async (req, res) => {
     const { name, email, subject, message } = req.body;
-    
+
     if (!name || !email || !subject || !message) {
-        return res.status(400).json({ 
-            success: false, 
-            message: 'Please fill all fields' 
+        return res.status(400).json({
+            success: false,
+            message: 'Please fill all fields'
         });
     }
-    
+
     const newMessage = {
         id: messageIdCounter++,
         name,
@@ -219,17 +232,17 @@ app.post('/api/messages', async (req, res) => {
         date: new Date().toISOString().split('T')[0],
         createdAt: new Date()
     };
-    
+
     messages.push(newMessage);
-    
+
     // ✅ SEND NOTIFICATIONS
     sendWhatsAppNotification('message', { name, email, subject, message });
     await sendEmailNotification('message', { name, email, subject, message });
-    
-    res.status(201).json({ 
-        success: true, 
+
+    res.status(201).json({
+        success: true,
         message: '✅ Message sent successfully! Notifications sent!',
-        data: newMessage 
+        data: newMessage
     });
 });
 
@@ -279,19 +292,26 @@ app.get('/api/stats', (req, res) => {
     });
 });
 
-// ============ START SERVER ============
-const PORT = 5001;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n✅ ====================================`);
-    console.log(`   🚀 MOLEXA API IS RUNNING!`);
-    console.log(`   📡 http://localhost:${PORT}`);
-    console.log(`   📚 /api/orders`);
-    console.log(`   📚 /api/messages`);
-    console.log(`   📚 /api/products`);
-    console.log(`   📚 /api/users`);
-    console.log(`   📊 /api/stats`);
-    console.log(`✅ ====================================`);
-    console.log(`\n📱 WhatsApp: ${YOUR_PHONE}`);
-    console.log(`📧 Email: ${YOUR_EMAIL}`);
-    console.log(`✅ Notifications Enabled!\n`);
-});
+// ============ EXPORT FOR VERCEL ============
+// ✅ YEH CHANGE HAI - Vercel ke liye export
+module.exports = app;
+
+// ============ LOCAL DEVELOPMENT SERVER ============
+// ✅ YEH CHANGE HAI - Sirf local development ke liye
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5001;
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`\n✅ ====================================`);
+        console.log(`   🚀 MOLEXA API IS RUNNING!`);
+        console.log(`   📡 http://localhost:${PORT}`);
+        console.log(`   📚 /api/orders`);
+        console.log(`   📚 /api/messages`);
+        console.log(`   📚 /api/products`);
+        console.log(`   📚 /api/users`);
+        console.log(`   📊 /api/stats`);
+        console.log(`✅ ====================================`);
+        console.log(`\n📱 WhatsApp: ${YOUR_PHONE}`);
+        console.log(`📧 Email: ${YOUR_EMAIL}`);
+        console.log(`✅ Notifications Enabled!\n`);
+    });
+}
